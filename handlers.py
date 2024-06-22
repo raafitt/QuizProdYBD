@@ -3,8 +3,7 @@ from aiogram.filters import Command, CommandStart, StateFilter, CommandObject, C
 from aiogram.fsm.context import FSMContext
 from aiogram.filters.command import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
-from database import quiz_data
-from service import generate_options_keyboard, get_question, new_quiz, get_quiz_index, update_quiz_index, update_statistics,get_statistics,get_table_rows
+from service import generate_options_keyboard, get_question, new_quiz, get_quiz_index, update_quiz_index, update_statistics,get_statistics,get_table_rows,get_table_row
 import os
 import logging
 import json
@@ -22,14 +21,16 @@ async def right_answer(callback: types.CallbackQuery):
     first_name=callback.from_user.first_name
    
     current_question_index = await get_quiz_index(user_id)
-    correct_index = quiz_data[current_question_index]['correct_option']
-    opts = quiz_data[current_question_index]['options']
+    res=await get_table_row(current_question_index)
+    res=json.loads(res)
+    correct_index = res['correct_option']
+    opts = res['options']
 
     await callback.message.answer(f'Ваш ответ: {callback.data}')
 
     if callback.data != opts[correct_index]:
-        correct_option = quiz_data[current_question_index]['correct_option']
-        await callback.message.answer(f"Неправильно. Правильный ответ: {quiz_data[current_question_index]['options'][correct_option]}")
+        correct_option = res['correct_option']
+        await callback.message.answer(f"Неправильно. Правильный ответ: {res['options'][correct_option]}")
     else:
         point = await get_statistics(user_id)
         point+=1
@@ -37,13 +38,16 @@ async def right_answer(callback: types.CallbackQuery):
         await callback.message.answer('Верно')
     current_question_index += 1
     await update_quiz_index(user_id, current_question_index,first_name)
-    if current_question_index < len(quiz_data):
-        await get_question(callback.message, callback.from_user.id)
+    table_rows=await get_table_rows('questions1')
+    if current_question_index < len(table_rows):
+        await get_question(callback.message, 
+                            callback.from_user.id,
+                            )
     else:
         point = await get_statistics(user_id)
         await callback.message.answer(f'Вы прошли весь квиз! Поздравляем!\nВы набрали {point} балла')
         #Получаем записи из таблицы
-        table_rows=await get_table_rows()
+        table_rows=await get_table_rows('quiz_state')
         error = {"table_rows": table_rows}
         logging.error(json.dumps(error))
         results=''

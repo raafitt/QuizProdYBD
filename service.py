@@ -21,15 +21,16 @@ def generate_options_keyboard(answer_options, right_answer):
 
 
 
-async def get_question(message, user_id):
-    
-    # Получение текущего вопроса из словаря состояний пользователя
+async def get_question(message, user_id,):
     current_question_index = await get_quiz_index(user_id)
-    print(current_question_index)
-    correct_index = quiz_data[current_question_index]['correct_option']
-    opts = quiz_data[current_question_index]['options']
+    res=await get_table_row(current_question_index)
+    res=json.loads(res)
+    correct_index = res['correct_option']
+    opts = res['options']
     kb = generate_options_keyboard(opts, opts[correct_index])
-    await message.answer(f"{quiz_data[current_question_index]['question']}", reply_markup=kb)
+    await message.answer(f"{res['question']}", reply_markup=kb)
+
+
 
 
 async def new_quiz(message):
@@ -38,9 +39,13 @@ async def new_quiz(message):
     first_name=first_name.encode('utf-8')
     current_question_index = 0
     point=0
+    res=await get_table_row(current_question_index)
+    res=json.loads(res)
+    correct_index = res['correct_option']
+    opts = res['options']
     await update_quiz_index(user_id, current_question_index,first_name)
     await update_statistics(user_id, point,first_name)
-    await get_question(message, user_id)
+    await get_question(message,user_id,)
 
 
 async def get_quiz_index(user_id):
@@ -115,13 +120,32 @@ async def update_statistics(user_id, stat_query,first_name):
         first_name=first_name
     )
 
-async def get_table_rows():
+async def get_table_rows(table):
     try:
-        query = f"""SELECT * FROM `quiz_state`"""
+        query = f"""SELECT * FROM {table}"""
         results=execute_select_query(pool,query)
         if len(results) == 0:
             return 0
         return results
     except Exception as e:
         error = {"error": str(e), "location": "get_table_rows()"}
+        logging.error(json.dumps(error))
+
+async def get_table_row(id):
+    try:
+        get_table_row = f"""
+        DECLARE $id AS Uint64;
+
+        SELECT question
+        FROM `questions1`
+        WHERE id == $id;
+        """
+        results = execute_select_query(pool, get_table_row, id=id)
+        if len(results) == 0:
+            return 0
+        if results[0]["question"] is None:
+            return 0
+        return results[0]["question"]
+    except Exception as e:
+        error = {"error": str(e), "location": "get_table_row()"}
         logging.error(json.dumps(error))
